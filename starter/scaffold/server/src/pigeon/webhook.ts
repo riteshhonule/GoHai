@@ -1,4 +1,6 @@
 import express, { type Request, type Response } from 'express';
+import { emitEvent } from '../realtime/events.js';
+import { emitStatus } from '../realtime/frames.js';
 import { verifyPigeonSignature } from './signature.js';
 import { ensureContact, getStores, isDuplicateKey, isKnownWorkspace, type OutboundStatus } from './store.js';
 
@@ -101,7 +103,7 @@ async function applyInbound(event: PigeonEvent): Promise<boolean> {
   const { message_id, from, text } = event.data;
   if (!nonEmpty(message_id) || !nonEmpty(from)) return false;
   const { messages } = await getStores();
-  await ensureContact(event.workspace, from);
+  await ensureContact(event.workspace, from, event.occurred_at);
   try {
     await messages.updateOne(
       { message_id },
@@ -120,6 +122,15 @@ async function applyInbound(event: PigeonEvent): Promise<boolean> {
   } catch (err) {
     if (!isDuplicateKey(err)) throw err; // concurrent duplicate: already stored
   }
+  // Idempotent by message id, so duplicates (and a retry after a crash between
+  // the insert and this call) never produce a second frame.
+  await emitEvent(event.workspace, `inbound:${message_id}`, {
+    type: 'message.inbound',
+    contact: from,
+    message_id,
+    text: typeof text === 'string' ? text : '',
+    occurred_at: event.occurred_at.toISOString(),
+  });
   return true;
 }
 
@@ -138,7 +149,7 @@ async function applyStatus(event: PigeonEvent): Promise<void> {
   else return; // unknown status values are ignored
 
   // Pigeon has the message, so the worker has nothing left to send.
-  await outbound.updateOne(
+  const updated = await outbound.findOneAndUpdate(
     { workspace: event.workspace, client_ref, status: { $in: allowedFrom } },
     {
       $set: {
@@ -147,6 +158,11 @@ async function applyStatus(event: PigeonEvent): Promise<void> {
         ...(nonEmpty(message_id) ? { pigeon_id: message_id } : {}),
       },
     },
+    { returnDocument: 'after' },
   );
-  // No match means either an unknown message (ignored) or a stale/duplicate event.
+  // No match means an unknown message (ignored) or a stale/duplicate event. A
+  // duplicate whose first attempt crashed before emitting still reaches its
+  // frame: emitting is idempotent per (client_ref, status).
+  const doc = updated ?? (await outbound.findOne({ workspace: event.workspace, client_ref, status: status as OutboundStatus }));
+  if (doc) await emitStatus(doc.workspace, doc.contact, doc.client_ref, doc.status);
 }

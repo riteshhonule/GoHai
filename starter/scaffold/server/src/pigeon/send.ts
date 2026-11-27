@@ -1,4 +1,5 @@
 import { config } from '../config.js';
+import { emitEvent } from '../realtime/events.js';
 import { ensureContact, getStores, isDuplicateKey, type OutboundDoc } from './store.js';
 
 export const REQUEST_TIMEOUT_MS = 8000;
@@ -15,7 +16,7 @@ export interface ReplyInput {
 // one row. The caller may answer 202 once this resolves.
 export async function enqueueReply(input: ReplyInput): Promise<void> {
   const { outbound } = await getStores();
-  await ensureContact(input.workspace, input.contact);
+  await ensureContact(input.workspace, input.contact, new Date());
   const doc: OutboundDoc = {
     workspace: input.workspace,
     contact: input.contact,
@@ -36,6 +37,14 @@ export async function enqueueReply(input: ReplyInput): Promise<void> {
   } catch (err) {
     if (!isDuplicateKey(err)) throw err; // already stored: still a success
   }
+  // Tell other agents a reply exists (idempotent per client_ref).
+  await emitEvent(input.workspace, `outbound:${input.client_ref}`, {
+    type: 'message.outbound',
+    contact: input.contact,
+    client_ref: input.client_ref,
+    text: input.text,
+    status: 'queued',
+  });
   wake();
 }
 

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
+import { emitStatus } from '../realtime/frames.js';
 import { getStores, type OutboundDoc } from './store.js';
 import { onWake, sendToPigeon } from './send.js';
 import { cooloffRemainingMs, setCooloff, takeToken, workspacesCoolingOff } from './ratelimit.js';
@@ -152,10 +153,9 @@ async function tick(): Promise<boolean> {
         { workspace: doc.workspace, client_ref: doc.client_ref, claim_id: doc.claim_id, send_state: 'inflight' },
         { $set: { send_state: 'done', last_error: result.reason } },
       );
-      await outbound.updateOne(
-        { workspace: doc.workspace, client_ref: doc.client_ref, status: 'queued' },
-        { $set: { status: 'failed' } },
-      );
+      if ((await outbound.updateOne({ workspace: doc.workspace, client_ref: doc.client_ref, status: 'queued' }, { $set: { status: 'failed' } })).modifiedCount) {
+        await emitStatus(doc.workspace, doc.contact, doc.client_ref, 'failed');
+      }
       break;
   }
   return true;
