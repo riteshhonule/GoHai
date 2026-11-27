@@ -1,13 +1,13 @@
 {
   "profile": "full",
-  "startedAt": "2026-11-27T14:09:49.141Z",
+  "startedAt": "2026-11-27T14:19:19.197Z",
   "checks": [
     {
       "level": 1,
       "id": "inbound_complete",
       "max": 4,
       "got": 4,
-      "detail": "164 of 164 genuine messages stored"
+      "detail": "177 of 177 genuine messages stored"
     },
     {
       "level": 1,
@@ -49,7 +49,7 @@
       "id": "ack_speed",
       "max": 1,
       "got": 1,
-      "detail": "p95 acknowledgement 432 ms, 0 first attempts not acknowledged"
+      "detail": "p95 acknowledgement 89 ms, 0 first attempts not acknowledged"
     },
     {
       "level": 1,
@@ -84,14 +84,14 @@
       "id": "outage_recovery",
       "max": 2,
       "got": 2,
-      "detail": "6 of 6 replies requested during a 8 s provider outage were delivered afterwards, 0 more than once; 24 requests made during the outage"
+      "detail": "6 of 6 replies requested during a 8 s provider outage were delivered afterwards, 0 more than once; 23 requests made during the outage"
     },
     {
       "level": 2,
       "id": "crash_inbound_complete",
       "max": 3,
       "got": 3,
-      "detail": "killed at 10 s, down 4 s: 170 of 170 genuine messages stored"
+      "detail": "killed at 11 s, down 4 s: 183 of 183 genuine messages stored"
     },
     {
       "level": 2,
@@ -133,7 +133,7 @@
       "id": "multi_inbound_complete",
       "max": 2,
       "got": 2,
-      "detail": "174 of 174 genuine messages stored"
+      "detail": "170 of 170 genuine messages stored"
     },
     {
       "level": 3,
@@ -247,5 +247,5 @@
       "max": 15
     }
   },
-  "finishedAt": "2026-11-27T14:14:11.033Z"
+  "finishedAt": "2026-11-27T14:23:56.302Z"
 }
