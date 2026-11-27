@@ -10,7 +10,9 @@ const IDLE_POLL_MS = 250;
 // process died) and any worker may take it over. Must exceed the 8 s request
 // timeout; kept well under the 60 s failover budget.
 const LEASE_MS = 20000;
-const MAX_TOKEN_WAIT_MS = 2000;
+// Slots are reserved, so queued waits grow with the number of waiting workers
+// (12 workers at 3.5/s is about 3.5 s). Far below the lease.
+const MAX_TOKEN_WAIT_MS = 6000;
 const BACKOFF_BASE_MS = 1000;
 const BACKOFF_MAX_MS = 10000;
 

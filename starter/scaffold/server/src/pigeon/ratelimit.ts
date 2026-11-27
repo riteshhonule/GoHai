@@ -14,8 +14,8 @@ const bucketKey = (ws: string) => `${REDIS_PREFIX}bucket:${ws}`;
 const CAPACITY = 3;
 const REFILL_PER_SEC = 3.5;
 
-// Shared token bucket across every server process. Returns ms to wait (0 = a
-// token was taken). Uses Redis TIME so processes do not need synced clocks.
+// Shared token bucket across every server process. Returns ms to wait before
+// sending (0 = go now). The slot is reserved either way. Uses Redis TIME so processes do not need synced clocks.
 const BUCKET_LUA = `
 local t = redis.call('TIME')
 local now = t[1] * 1000 + math.floor(t[2] / 1000)
@@ -26,8 +26,12 @@ local tokens = tonumber(h[1])
 local ts = tonumber(h[2])
 if tokens == nil then tokens = cap; ts = now end
 tokens = math.min(cap, tokens + math.max(0, now - ts) * rate)
+-- Always reserve a slot, even when none is free yet: tokens may go negative,
+-- so each caller is told to wait for its own slot instead of everyone being
+-- told the same wait and firing together.
 local wait = 0
-if tokens >= 1 then tokens = tokens - 1 else wait = math.ceil((1 - tokens) / rate) end
+if tokens < 1 then wait = math.ceil((1 - tokens) / rate) end
+tokens = tokens - 1
 redis.call('HSET', KEYS[1], 'tokens', tostring(tokens), 'ts', now)
 redis.call('PEXPIRE', KEYS[1], 30000)
 return wait
